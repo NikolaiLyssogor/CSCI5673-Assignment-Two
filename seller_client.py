@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+import random
 
 
 class SellerClient:
@@ -14,7 +15,7 @@ class SellerClient:
 
         self.routes = {
             'create account': self.create_account,
-            # 'login': self.login,
+            'login': self.login,
             # 'logout': self.logout,
             # 'get seller rating': self.get_seller_rating,
             # 'sell item': self.sell_item,
@@ -53,6 +54,50 @@ class SellerClient:
                 # self.benchmarker.log_response_time(end-start)
 
             print('\n', json.loads(response.text)['status'])
+
+    def login(self):
+        """
+        Change the local state to reflect that the user
+        is logged in.
+        """
+        if self.is_logged_in:
+            print("You are already logged in.")
+        else:
+            if self.debug:
+                # Get the username and password
+                print("\nPlease provide a username and password.")
+                username = input("\nusername: ")
+                password = input("password: ")
+            else:
+                # Login with any account that's already been created
+                # username, password = random.choice(self.benchmarker.accounts)
+                pass
+
+            data = json.dumps({
+                'username': username,
+                'password': password
+            })
+
+            # Send request to the seller server
+            # start = time.time()
+            url = self.base_url + '/login'
+            response = requests.post(url, headers=self.headers, data=data)
+            # end = time.time()
+
+            # if not self.debug:
+            #     self.benchmarker.log_response_time(end-start)
+
+            response_text = json.loads(response.text)
+            if 'Success' in response_text['status']:
+                self.is_logged_in = True
+                self.username = data['username']
+            
+            print('\n', response_text['status'])
+
+    def logout(self):
+        self.is_logged_in = False
+        self.username = ""
+        print("\nYou are now logged out.")
 
     def _get_route(self, route: str):
         return self.routes[route]
