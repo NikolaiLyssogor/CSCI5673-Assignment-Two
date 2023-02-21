@@ -15,21 +15,35 @@ stub = database_pb2_grpc.databaseStub(channel)
 def createAccount():
     data = json.loads(request.data)
     unm, pwd = data['username'], data['password']
+
+    # Check if username is already taken
     try:
-        # Form the database query
-        query = database_pb2.databaseRequest(query= f"""
+        sql = f"SELECT * FROM sellers WHERE username = '{unm}'"
+        db_response = query_database(sql)
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+        if db_response:
+            # Username taken
+            response = json.dumps({'status': 'Error: Username already taken'})
+            return Response(response=response, status=400)
+
+    # Create new account
+    try:
+        sql = f"""
             INSERT INTO sellers ('username', 'password') VALUES
             ('{unm}', '{pwd}')
-        """)
-        # Query the DB and decode the response
-        db_response = stub.changeDatabase(request=query)
-        db_response = pickle.loads(db_response.db_response)
+        """
+        db_response = query_database(sql)
     except:
         response = json.dumps({'status': 'Error: Failed to connect to database'})
         return Response(response=response, status=500)
     else:
         # Check for database error
-        if isinstance(db_response, dict):
+        if 'Error' in db_response['status']:
             response = json.dumps(db_response)
         else:
             response = json.dumps({'status': 'Success: Account created successfully'})
@@ -43,13 +57,8 @@ def login():
     unm, pwd = data['username'], data['password']
 
     try:
-        query = database_pb2.databaseRequest(query= f"""
-            SELECT * FROM sellers
-            WHERE username = '{unm}'
-        """)
-        db_response = stub.queryDatabase(request=query)
-        db_response = pickle.loads(db_response.db_response)
-        print("db_response", db_response)
+        sql = f"SELECT * FROM sellers WHERE username = '{unm}'"
+        db_response = query_database(sql)
     except:
         response = json.dumps({'status': 'Error: Failed to connect to database'})
         return Response(response=response, status=500)
@@ -65,10 +74,61 @@ def login():
             response = json.dumps({'status': 'Error: Incorrect password'})
             for user in db_response:
                 if user[1] == pwd:
-                    response = json.dumps({'status': 'Login successful'})
-                    break
+                    # Found user, need to update DB that they are logged in
+                    response = json.dumps({'status': 'Success: Login successful'})
+                    sql = f"""
+                        UPDATE sellers SET is_logged_in = 'true'
+                        WHERE username = '{unm}' AND password = '{pwd}'
+                    """
+                    try:
+                        db_response2 = query_database(sql)
+                    except:
+                        response = json.dumps({'status': 'Error: Failed to connect to database'})
+                        return Response(response=response, status=500)
+                    else:
+                        if 'Error' in db_response2['status']:
+                            return Response(response=db_response2, status=500)
+                        else:
+                            break
 
         return Response(response=response, status=200)
+
+@app.route('/checkIfLoggedIn', methods=['POST'])
+def check_if_logged_in():
+    data = json.loads(request.data)
+    unm = data['username']
+
+    try:
+        # Check the DB if the user is logged in
+        sql = f"SELECT is_logged_in FROM sellers WHERE username = '{unm}'"
+        db_response = query_database(sql)
+    except:
+        # Return database connection error
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        # DB serve couldn't connect to DB
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+        
+        if not db_response:
+            # No such account so not logged in
+            response = json.dumps({'is_logged_in': False})
+        else:
+            # Account exists: Check if logged in or not
+            is_logged_in = True if db_response[0][0] == 'true' else False
+            response = json.dumps({'is_logged_in': is_logged_in})
+        
+        return Response(response=response, status=200)
+
+def query_database(sql: str):
+    """
+    Sends a query over gRPC to the database and returns 
+    the object that the database returns.
+    """
+    query = database_pb2.databaseRequest(query=sql)
+    db_response = stub.queryDatabase(request=query)
+    return pickle.loads(db_response.db_response)
         
 
 if __name__ == "__main__":

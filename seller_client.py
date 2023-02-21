@@ -7,7 +7,6 @@ import random
 class SellerClient:
 
     def __init__(self, server_ip : str = '0.0.0.0:5000', debug : bool = True):
-        self.is_logged_in = False
         self.username = ""
         self.debug = debug
         self.base_url = 'http://' + server_ip
@@ -26,8 +25,8 @@ class SellerClient:
 
     def create_account(self):
          # User cannot create account if logged in
-        if self.is_logged_in:
-            print("You are already logged in. You cannot create an account.\n")
+        if self.check_if_logged_in():
+            print("\nYou are already logged in. You cannot create an account.\n")
         else:
             if self.debug == True:
                 # Get user input
@@ -60,8 +59,8 @@ class SellerClient:
         Change the local state to reflect that the user
         is logged in.
         """
-        if self.is_logged_in:
-            print("You are already logged in.")
+        if self.check_if_logged_in():
+            print("\nYou are already logged in.")
         else:
             if self.debug:
                 # Get the username and password
@@ -89,15 +88,26 @@ class SellerClient:
 
             response_text = json.loads(response.text)
             if 'Success' in response_text['status']:
-                self.is_logged_in = True
-                self.username = data['username']
+                self.username = username
+                print("username:", self.username)
             
             print('\n', response_text['status'])
 
     def logout(self):
-        self.is_logged_in = False
         self.username = ""
         print("\nYou are now logged out.")
+
+    def check_if_logged_in(self) -> bool:
+        """
+        Calls the server to check if the user is logged in.
+        """
+        data = json.dumps({'username': self.username})
+        url = self.base_url + '/checkIfLoggedIn'
+        response = requests.post(url, headers=self.headers, data=data)
+        response_text = json.loads(response.text)
+        print(response_text['is_logged_in'])
+        return response_text['is_logged_in']
+
 
     def _get_route(self, route: str):
         return self.routes[route]
@@ -121,6 +131,7 @@ class SellerClient:
 
                 # Execute the action specified
                 if action == 'exit':
+                    # TODO: Log out first
                     exit()
 
                 self.routes[action]()

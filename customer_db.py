@@ -26,7 +26,8 @@ class databaseServicer(database_pb2_grpc.databaseServicer):
                 password TEXT NOT NULL, 
                 thumbs_up INTEGER DEFAULT 0, 
                 thumbs_down INTEGER DEFAULT 0, 
-                items_sold INTEGER DEFAULT 0
+                items_sold INTEGER DEFAULT 0,
+                is_logged_in TEXT DEFAULT 'false'
                 )
             """)
 
@@ -36,7 +37,8 @@ class databaseServicer(database_pb2_grpc.databaseServicer):
                 CREATE TABLE IF NOT EXISTS buyers (
                 username TEXT NOT NULL,
                 password TEXT NOT NULL,
-                items_purchased INTEGER DEFAULT 0
+                items_purchased INTEGER DEFAULT 0,
+                is_logged_in TEXT DEFAULT 'false'
                 )
             """)
 
@@ -50,7 +52,13 @@ class databaseServicer(database_pb2_grpc.databaseServicer):
             try:
                 cur = con.cursor()
                 db_resp = cur.execute(request.query)
-                serv_resp = pickle.dumps(db_resp.fetchall())
+                if 'SELECT' in request.query:
+                    # R in CRUD
+                    serv_resp = pickle.dumps(db_resp.fetchall())
+                else:
+                    # CUD in CRUD
+                    con.commit()
+                    serv_resp = pickle.dumps({'status': 'Success: Operation completed'})
             except:
                 serv_resp = pickle.dumps({'status': 'Error: Bad query or unable to connect'})
             finally:
