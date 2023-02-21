@@ -16,7 +16,7 @@ class SellerClient:
             'create account': self.create_account,
             'login': self.login,
             'logout': self.logout,
-            # 'get seller rating': self.get_seller_rating,
+            'get seller rating': self.get_seller_rating,
             # 'sell item': self.sell_item,
             # 'remove item': self.remove_item,
             # 'list item': self.list_items,
@@ -28,7 +28,7 @@ class SellerClient:
         if self.check_if_logged_in():
             print("\nYou are already logged in. You cannot create an account.\n")
         else:
-            if self.debug == True:
+            if self.debug:
                 # Get user input
                 print("Please provide a username and password.")
                 username = input("\nusername: ")
@@ -104,6 +104,21 @@ class SellerClient:
             if 'Success' in response_text['status']:
                 self.username = ""
 
+    def get_seller_rating(self):
+        if not self.check_if_logged_in():
+            print("\nYou must be logged in to check your rating")
+            return None
+
+        data = {'username': self.username}
+        url = self.base_url + f'/getSellerRating/{self.username}'
+        response = requests.get(url)
+        response_text = json.loads(response.text)
+
+        if 'Error' in response_text['status']:
+                print("\n", response_text['status']),
+        else:
+            print(f"\nYou have {response_text['thumbs_up']} thumbs up and {response_text['thumbs_down']} thumbs down.")
+
     def check_if_logged_in(self) -> bool:
         """
         Calls the server to check if the user is logged in.
@@ -131,10 +146,10 @@ class SellerClient:
                     # Get user input
                     actions = list(self.routes.keys())
 
-                    if not self.username:
-                        actions.remove('logout')
-                    else:
-                        actions.remove('login')
+                    # if not self.username:
+                    #     actions.remove('logout')
+                    # else:
+                    #     actions.remove('login')
 
                     action = input(f"\nWhat would you like to do?\n{actions}\n")
 

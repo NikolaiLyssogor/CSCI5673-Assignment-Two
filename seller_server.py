@@ -143,6 +143,29 @@ def check_if_logged_in():
         
         return Response(response=response, status=200)
 
+@app.route('/getSellerRating/<string:unm>')
+def get_seller_rating(unm):
+    sql = f"""
+        SELECT thumbs_up, thumbs_down FROM sellers
+        WHERE username = '{unm}'
+    """
+    try:
+        db_response = query_database(sql)
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+        
+        thumbs_up, thumbs_down = db_response[0]
+        response = json.dumps({
+            'status': 'Success: Operation completed',
+            'thumbs_up': thumbs_up,
+            'thumbs_down': thumbs_down
+        })
+        return Response(response=response, status=200)
+
 def query_database(sql: str):
     """
     Sends a query over gRPC to the database and returns 
