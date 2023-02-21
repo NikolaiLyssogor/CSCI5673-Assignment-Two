@@ -93,6 +93,28 @@ def login():
 
         return Response(response=response, status=200)
 
+@app.route('/logout', methods=['POST'])
+def logout():
+    data = json.loads(request.data)
+    unm = data['username']
+    sql = f"""
+        UPDATE sellers SET is_logged_in = 'false'
+        WHERE username = '{unm}'
+    """
+
+    try:
+        db_response = query_database(sql)
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if 'Error' in db_response['status']:
+            return Response(response=db_response, status=500)
+        else:
+            response = json.dumps({'status': 'Success: You have logged out'})
+            return Response(response=response, status=200)
+
+
 @app.route('/checkIfLoggedIn', methods=['POST'])
 def check_if_logged_in():
     data = json.loads(request.data)

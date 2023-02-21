@@ -15,7 +15,7 @@ class SellerClient:
         self.routes = {
             'create account': self.create_account,
             'login': self.login,
-            # 'logout': self.logout,
+            'logout': self.logout,
             # 'get seller rating': self.get_seller_rating,
             # 'sell item': self.sell_item,
             # 'remove item': self.remove_item,
@@ -94,8 +94,15 @@ class SellerClient:
             print('\n', response_text['status'])
 
     def logout(self):
-        self.username = ""
-        print("\nYou are now logged out.")
+        if self.username:
+            data = json.dumps({'username': self.username})
+            url = self.base_url + '/logout'
+            response = requests.post(url, headers=self.headers, data=data)
+            response_text = json.loads(response.text)
+
+            print('\n', response_text['status'])
+            if 'Success' in response_text['status']:
+                self.username = ""
 
     def check_if_logged_in(self) -> bool:
         """
@@ -120,21 +127,32 @@ class SellerClient:
         if self.debug:
             # Run in interactive terminal mode
             while True:
-                # Get user input
-                actions = list(self.routes.keys())
-                action = input(f"\nWhat would you like to do?\n{actions}\n")
+                try:
+                    # Get user input
+                    actions = list(self.routes.keys())
 
-                # Check that action is valid
-                if action not in actions:
-                    print("\nUnknown action. Please select another.\n")
-                    continue
+                    if not self.username:
+                        actions.remove('logout')
+                    else:
+                        actions.remove('login')
 
-                # Execute the action specified
-                if action == 'exit':
-                    # TODO: Log out first
-                    exit()
+                    action = input(f"\nWhat would you like to do?\n{actions}\n")
 
-                self.routes[action]()
+                    # Check that action is valid
+                    if action not in actions:
+                        print("\nUnknown action. Please select another.\n")
+                        continue
+
+                    # Execute the action specified
+                    if action == 'exit':
+                        self.logout()
+                        exit(130)
+
+                    self.routes[action]()
+                except KeyboardInterrupt:
+                        # Logout then actually exit
+                        self.logout()
+                        exit(130)
         else:
             exit()
             # # Calls functions in a predetermined order
@@ -165,14 +183,3 @@ class SellerClient:
 if __name__ == "__main__":
     seller = SellerClient()
     seller.serve()
-
-    base_url = 'http://0.0.0.0:5000'
-    headers = {'content-type': 'application/json'}
-
-    url = base_url + '/createAccount'
-    data = json.dumps({
-        'username': 'john',
-        'password': 'purple'
-    })
-    response = requests.post(url, headers=headers, data=data)
-    print(json.loads(response.text))
