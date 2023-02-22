@@ -2,7 +2,9 @@ import requests
 import json
 import time
 import random
+import pprint
 
+pp = pprint.PrettyPrinter()
 
 class SellerClient:
 
@@ -17,9 +19,9 @@ class SellerClient:
             'login': self.login,
             'logout': self.logout,
             'get seller rating': self.get_seller_rating,
-            # 'sell item': self.sell_item,
+            'sell item': self.sell_item,
             # 'remove item': self.remove_item,
-            # 'list item': self.list_items,
+            'list item': self.list_items,
             'exit': None # handled differently due to different args
         }
 
@@ -89,7 +91,6 @@ class SellerClient:
             response_text = json.loads(response.text)
             if 'Success' in response_text['status']:
                 self.username = username
-                print("username:", self.username)
             
             print('\n', response_text['status'])
 
@@ -104,12 +105,21 @@ class SellerClient:
             if 'Success' in response_text['status']:
                 self.username = ""
 
+    def check_if_logged_in(self) -> bool:
+        """
+        Calls the server to check if the user is logged in.
+        """
+        data = json.dumps({'username': self.username})
+        url = self.base_url + '/checkIfLoggedIn'
+        response = requests.post(url, headers=self.headers, data=data)
+        response_text = json.loads(response.text)
+        return response_text['is_logged_in']
+
     def get_seller_rating(self):
         if not self.check_if_logged_in():
             print("\nYou must be logged in to check your rating")
             return None
 
-        data = {'username': self.username}
         url = self.base_url + f'/getSellerRating/{self.username}'
         response = requests.get(url)
         response_text = json.loads(response.text)
@@ -119,17 +129,65 @@ class SellerClient:
         else:
             print(f"\nYou have {response_text['thumbs_up']} thumbs up and {response_text['thumbs_down']} thumbs down.")
 
-    def check_if_logged_in(self) -> bool:
+    def sell_item(self):
         """
-        Calls the server to check if the user is logged in.
+        Gather the attributes needed to list an item
+        for sale.
         """
-        data = json.dumps({'username': self.username})
-        url = self.base_url + '/checkIfLoggedIn'
-        response = requests.post(url, headers=self.headers, data=data)
-        response_text = json.loads(response.text)
-        print(response_text['is_logged_in'])
-        return response_text['is_logged_in']
+        if not self.check_if_logged_in():
+            print("\nYou must be logged in to sell an item.")
+        else:
+            if self.debug:
+                name = input("\nItem name: ")
+                category = int(input("Item category: "))
+                keywords = input("Item keywords: ")
+                condition = input("Item condition: ")
+                price = float(input("Item price: "))
+                quantity = int(input("Item quantity: "))
 
+                item = {
+                    'name': name,
+                    'category': category,
+                    'keywords': keywords,
+                    'condition': condition,
+                    'price': round(price, 2),
+                    'quantity': quantity,
+                    'seller': self.username,
+                    'status': 'For Sale',
+                    'buyer': None
+                }
+            # else:
+            #     item = {
+            #         'name': ''.join(random.choice(string.ascii_lowercase) for _ in range(10)),
+            #         'category': random.choice(range(10)),
+            #         'keywords': self.benchmarker.get_keywords(),
+            #         'condition': random.choice(['New', 'Used']),
+            #         'price': round(random.uniform(0, 100), 2),
+            #         'quantity': random.choice(range(1,6)),
+            #         'seller': self.username,
+            #         'status': 'For Sale',
+            #         'buyer': None
+            #     }
+
+            data = json.dumps(item)
+            url = self.base_url + '/sellItem'
+            response = requests.post(url, data=data, headers=self.headers)
+            response_text = json.loads(response.text)
+            print('\n', response_text['status'])
+
+    def list_items(self):
+        if not self.check_if_logged_in():
+            print("\nYou must be logged in to sell an item.")
+        else:
+            url = self.base_url + f'/listItems/{self.username}'
+            response = requests.get(url)
+            response_text = json.loads(response.text)
+
+            if 'Error' in response_text['status']:
+                print(response_text['status'])
+            else:
+                for item in response_text['items']:
+                    pp.pprint(item)
 
     def _get_route(self, route: str):
         return self.routes[route]

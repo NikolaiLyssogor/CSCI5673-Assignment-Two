@@ -8,7 +8,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 import pickle
 
-class databaseServicer(database_pb2_grpc.databaseServicer):
+class customerDBServicer(database_pb2_grpc.databaseServicer):
 
     def __init__(self):
         """
@@ -63,30 +63,12 @@ class databaseServicer(database_pb2_grpc.databaseServicer):
                 serv_resp = pickle.dumps({'status': 'Error: Bad query or unable to connect'})
             finally:
                 return database_pb2.databaseResponse(db_response=serv_resp)
-
-    def changeDatabase(self, request, context):
-        """
-        Implements gRPC route that deals with making changes to the 
-        database such as creating, updating, or deleting records.
-        """
-        print(request.query)
-        with sqlite3.connect('customers.db') as con:
-            try:
-                cur = con.cursor()
-                cur.execute(request.query)
-                con.commit()
-                serv_resp = pickle.dumps({'status': 'success'})
-            except:
-                serv_resp = pickle.dumps({'status': 'Error: Bad query or unable to connect'})
-            finally:
-                return database_pb2.databaseResponse(db_response=serv_resp)
         
-
 
 if __name__ == "__main__":
     # Start the server
     server = grpc.server(ThreadPoolExecutor(max_workers=10))
-    database_pb2_grpc.add_databaseServicer_to_server(databaseServicer(), server)
+    database_pb2_grpc.add_databaseServicer_to_server(customerDBServicer(), server)
     server.add_insecure_port('[::]:50051')
     server.start()
     server.wait_for_termination()

@@ -19,11 +19,6 @@ class databaseStub(object):
         request_serializer=database__pb2.databaseRequest.SerializeToString,
         response_deserializer=database__pb2.databaseResponse.FromString,
         )
-    self.changeDatabase = channel.unary_unary(
-        '/database/changeDatabase',
-        request_serializer=database__pb2.databaseRequest.SerializeToString,
-        response_deserializer=database__pb2.databaseResponse.FromString,
-        )
 
 
 class databaseServicer(object):
@@ -37,23 +32,11 @@ class databaseServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
-  def changeDatabase(self, request, context):
-    """Insert, update, or delete record from DB
-    """
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
 
 def add_databaseServicer_to_server(servicer, server):
   rpc_method_handlers = {
       'queryDatabase': grpc.unary_unary_rpc_method_handler(
           servicer.queryDatabase,
-          request_deserializer=database__pb2.databaseRequest.FromString,
-          response_serializer=database__pb2.databaseResponse.SerializeToString,
-      ),
-      'changeDatabase': grpc.unary_unary_rpc_method_handler(
-          servicer.changeDatabase,
           request_deserializer=database__pb2.databaseRequest.FromString,
           response_serializer=database__pb2.databaseResponse.SerializeToString,
       ),
