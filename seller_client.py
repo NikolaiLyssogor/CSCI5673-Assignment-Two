@@ -20,7 +20,8 @@ class SellerClient:
             'logout': self.logout,
             'get seller rating': self.get_seller_rating,
             'sell item': self.sell_item,
-            # 'remove item': self.remove_item,
+            'remove item': self.remove_item,
+            'change item price': self.change_item_price,
             'list item': self.list_items,
             'exit': None # handled differently due to different args
         }
@@ -189,9 +190,34 @@ class SellerClient:
                 for item in response_text['items']:
                     pp.pprint(item)
 
+    def remove_item(self):
+        if not self.check_if_logged_in():
+            print("\nPlease log in first.")
+        else:
+            if self.debug:
+                id = int(input("\nEnter the ID of the item you would like to remove: "))
+                quantity = input("\nHow many of this item do you want to remove? ")
+            else:
+                # Randomly remove 2 items with ids in [0, 500]
+                # ids = [random.choice(range(500)) for _ in range(2)]
+                pass
+
+            data = json.dumps({
+                'username': self.username,
+                'item_id': id,
+                'quantity': int(quantity)
+            })
+            url = self.base_url + '/deleteItem'
+            response = requests.put(url, headers=self.headers, data=data)
+            response_text = json.loads(response.text)
+            print('\n', response_text['status'])
+
+    # def change_item_price(self):
+
+
     def _get_route(self, route: str):
         return self.routes[route]
-
+            
     def serve(self):
         """
         Runs the server either in an interactive mode for debugging

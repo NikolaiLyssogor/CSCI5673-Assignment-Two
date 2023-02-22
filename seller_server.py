@@ -240,8 +240,54 @@ def list_items(unm):
             })
             return Response(response=response, status=200)
 
-    
+@app.route('/deleteItem', methods=['PUT'])
+def delete_item():
+    data = json.loads(request.data)
 
+    # Do some checks before deleting
+    sql = f"""
+        SELECT quantity FROM products
+        WHERE seller = '{data['username']}'
+          AND ROWID = '{data['item_id']}'
+    """
+    try:
+        db_response = query_database(sql, 'product')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            response = json.dumps(db_response)
+            return Response(response=response, status=500)
+        else:
+            if not db_response:
+                response = json.dumps({'status': 'Error: You are not the one selling this item or it does not exist'})
+                return Response(response=response, status=400)
+            elif db_response[0][0] < data['quantity']:
+                response = json.dumps({'status': 'Error: You have requested to delete more items than are available'})
+                return Response(response=response, status=400)     
+
+    # Now actually delete the items
+    actual_quantity = db_response[0][0]
+    if actual_quantity == data['quantity']:
+        sql = f"DELETE FROM products WHERE rowid = {data['item_id']}"
+    else:
+        new_qty = actual_quantity = data['quantity']
+        sql = f"UPDATE products SET quantity = {new_qty} WHERE rowid = {data['item_id']}"
+
+    try:
+        db_response = query_database(sql, 'product')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if 'Error' in db_response['status']:
+            response = json.dumps(db_response)
+            return Response(response=response, status=500)
+        else:
+            response = json.dumps({'status': 'Items deleted successfully'})
+            return Response(response=response, status=200)
+        
 def query_database(sql: str, db: str):
     """
     Sends a query over gRPC to the database and returns 
@@ -259,18 +305,3 @@ def query_database(sql: str, db: str):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
-    # channel = grpc.insecure_channel('localhost:50051')
-    # stub = database_pb2_grpc.databaseStub(channel)
-    # query = \
-    # """
-    # INSERT INTO sellers VALUES
-    #     ('mike', 4, 'blanket')
-    # """
-    # data = database_pb2.databaseRequest(query=query)
-    # response = stub.changeDatabase(request=data)
-    # print(pickle.loads(response.db_response))
-
-    # q1 = "SELECT * FROM sellers"
-    # data = database_pb2.databaseRequest(query=q1)
-    # response = stub.queryDatabase(request=data)
-    # print(pickle.loads(response.db_response))
