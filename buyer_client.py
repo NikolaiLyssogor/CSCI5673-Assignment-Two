@@ -26,7 +26,7 @@ class BuyerClient:
             'display cart': self.display_cart,
             # 'make purchase': self.make_purchase,
             # 'provide feedback': self.provide_feedback,
-            # 'get seller rating': self.get_seller_rating_by_id,
+            'get seller rating': self.get_seller_rating_by_id,
             # 'get purchase history': self.get_purchase_history,
             'exit': None # handled differently due to different args
         }
@@ -202,6 +202,21 @@ class BuyerClient:
             for item in self.cart:
                 print("")
                 pp.pprint(item)
+
+    def get_seller_rating_by_id(self):
+        if self.debug:
+            # Get seller ID from user
+            seller_id = input("\nPlease provide the ID for the seller whose rating you wish to view.\n")
+
+        url = self.base_url + '/getSellerRatingByID/' + seller_id
+        response = requests.get(url)
+        response_text = json.loads(response.text)
+
+        if 'Error' in response_text['status']:
+            print('\n', response_text['status'])
+        else:
+            tu, td = response_text['thumbs_up'], response_text['thumbs_down']
+            print(f"\nSeller with ID {seller_id} has {tu} thumbs up and {td} thumbs down")
 
     def _get_route(self, route: str):
         return self.routes[route]

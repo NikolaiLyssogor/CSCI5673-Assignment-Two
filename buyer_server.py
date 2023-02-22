@@ -5,6 +5,8 @@ import database_pb2_grpc
 import pickle
 import json
 from flask import Flask, request, Response
+from suds.client import Client
+
 
 # Define Flask service
 app = Flask(__name__)
@@ -14,6 +16,9 @@ customer_stub = database_pb2_grpc.databaseStub(customer_channel)
 # Stub for communicating with product database
 product_channel = grpc.insecure_channel('localhost:50052')
 product_stub = database_pb2_grpc.databaseStub(product_channel)
+# Stub for communicating with the SOAP transactions database
+soap_client = Client('http://localhost:7789/?wsdl')
+
 
 @app.route('/createAccount', methods=['POST'])
 def createAccount():
@@ -204,6 +209,33 @@ def add_items_to_cart():
         'items': items
     })
     return Response(response=response, status=200)
+
+@app.route('/getSellerRatingByID/<string:seller_id>', methods=['GET'])
+def get_seller_rating_by_id(seller_id):
+    sql = f"SELECT rowid, * from sellers WHERE rowid = {seller_id}"
+    try:
+        db_response = query_database(sql, 'customer')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+
+    if not db_response:
+        response = json.dumps({'status': 'Error: The user you are trying to find does not exist'})
+        return Response(response=response, status=400)
+    
+    thumbs_up, thumbs_down = db_response[0][3], db_response[0][4]
+    response = json.dumps({
+        'status': 'Success: Seller queried without error',
+        'thumbs_up': thumbs_up,
+        'thumbs_down': thumbs_down
+    })
+    return Response(response=response, status=200)
+
+# @app.route('/makePurchase', methods=['POST'])
+# def 
 
 def products_query_to_json(db_response):
     items = []
