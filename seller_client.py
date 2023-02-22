@@ -196,7 +196,7 @@ class SellerClient:
         else:
             if self.debug:
                 id = int(input("\nEnter the ID of the item you would like to remove: "))
-                quantity = input("\nHow many of this item do you want to remove? ")
+                quantity = input("How many of this item do you want to remove? ")
             else:
                 # Randomly remove 2 items with ids in [0, 500]
                 # ids = [random.choice(range(500)) for _ in range(2)]
@@ -212,8 +212,27 @@ class SellerClient:
             response_text = json.loads(response.text)
             print('\n', response_text['status'])
 
-    # def change_item_price(self):
+    def change_item_price(self):
+        if not self.check_if_logged_in():
+            print("\nPlease log in first.")
+        else:
+            if self.debug:
+                id = int(input("\nEnter the ID of the item whose price you wish to change: "))
+                new_price = input("What shall be the new price? ")
+            else:
+                # Randomly remove 2 items with ids in [0, 500]
+                # ids = [random.choice(range(500)) for _ in range(2)]
+                pass
 
+            data = json.dumps({
+                'username': self.username,
+                'item_id': id,
+                'new_price': round(float(new_price), 2)
+            })
+            url = self.base_url + '/changeItemPrice'
+            response = requests.put(url, headers=self.headers, data=data)
+            response_text = json.loads(response.text)
+            print('\n', response_text['status'])
 
     def _get_route(self, route: str):
         return self.routes[route]

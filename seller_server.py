@@ -285,7 +285,49 @@ def delete_item():
             response = json.dumps(db_response)
             return Response(response=response, status=500)
         else:
-            response = json.dumps({'status': 'Items deleted successfully'})
+            response = json.dumps({'status': 'Item(s) deleted successfully'})
+            return Response(response=response, status=200)
+
+@app.route('/changeItemPrice', methods=['PUT'])
+def change_item_price():
+    data = json.loads(request.data)
+
+    # Check if this is the user's item before changing the price
+    sql = f"""
+        SELECT rowid FROM products
+        WHERE seller = '{data['username']}'
+          AND ROWID = '{data['item_id']}'
+    """
+    try:
+        db_response = query_database(sql, 'product')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            response = json.dumps(db_response)
+            return Response(response=response, status=500)
+        else:
+            if not db_response:
+                response = json.dumps({'status': 'Error: You are not the one selling this item'})
+                return Response(response=response, status=400)    
+
+    # Now actually change the price of the item
+    sql = f"""
+        UPDATE products SET price = {data['new_price']}
+        WHERE rowid = {data['item_id']}
+    """
+    try:
+        db_response = query_database(sql, 'product')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if 'Error' in db_response['status']:
+            response = json.dumps(db_response)
+            return Response(response=response, status=500)
+        else:
+            response = json.dumps({'status': 'Items price updated successfully'})
             return Response(response=response, status=200)
         
 def query_database(sql: str, db: str):
