@@ -146,6 +146,82 @@ def check_if_logged_in():
             response = json.dumps({'is_logged_in': is_logged_in})
 
         return Response(response=response, status=200)
+@app.route('/search', methods=['POST'])
+def search():
+    data = json.loads(request.data)
+    sql = f"SELECT rowid, * FROM products WHERE category = {data['category']}"
+    for keyword in data['keywords']:
+        sql += f" OR keywords LIKE '%{keyword}%'"
+
+    try:
+        db_response = query_database(sql, 'product')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+
+    # Return result as json
+    items = products_query_to_json(db_response)
+    response = json.dumps({
+        'status': 'Success: Items queried successfully',
+        'items': items
+    })
+    return Response(response=response, status=200)
+
+@app.route('/addItemsToCart', methods=['POST'])
+def add_items_to_cart():
+    data = json.loads(request.data)
+    sql = f"SELECT rowid, * FROM products WHERE rowid = {data['item_id']}"
+
+    try:
+        db_response = query_database(sql, 'product')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+
+    # Check if that item isn't in the DB
+    if not db_response:
+        response = json.dumps({'status': 'Error: This item is not in inventory'})
+        return Response(response=response, status=400)
+    
+    items = products_query_to_json(db_response)[0]
+
+    # Check if the user is requesting more than is available
+    if (data['quantity']) > items['quantity']:
+        response = json.dumps({'status': 'Error: You requested more items than are in our inventory'})
+        return Response(response=response, status=400)
+    else:
+        items['quantity'] = data['quantity']
+
+    # Good request, return items
+    response = json.dumps({
+        'status': 'Success: Items queried successfully',
+        'items': items
+    })
+    return Response(response=response, status=200)
+
+def products_query_to_json(db_response):
+    items = []
+    for db_item in db_response:
+        item = {
+            'id': db_item[0],
+            'name': db_item[1],
+            'category': db_item[2],
+            'keywords': db_item[3].split(','),
+            'condition': db_item[4],
+            'price': db_item[5],
+            'quantity': db_item[6],
+            'seller': db_item[7],
+            'status': db_item[8],
+        }
+        items.append(item)
+
+    return items
 
 def query_database(sql: str, db: str):
     """
