@@ -175,7 +175,7 @@ class BuyerClient:
                 quantity = int(input("Number of this item you wish to add to your cart: "))
                 
             else:
-                item_id = random.choice(range(1000))
+                item_id = random.choice(range(100))
                 quantity = random.choice(range(5))
 
             data = json.dumps({
@@ -359,6 +359,7 @@ class BuyerClient:
                         exit(130)
 
     def test(self, delay):
+        start = time.time()
         # Call functions randomly after logging in
         self.create_account()
         time.sleep(delay)
@@ -370,7 +371,7 @@ class BuyerClient:
             self.search, self.add_items_to_cart, self.make_purchase,
             self.get_seller_rating_by_id, self.get_purchase_history,
         ]
-        probs = [0.24, 0.24, 0.04, 0.24, 0.24]
+        probs = [0.22, 0.22, 0.12, 0.22, 0.22]
 
         for _ in range(500): # Each function calls check_if_logged_in, which calls server
             np.random.choice(functions, size=1, p=probs)[0]()
@@ -378,8 +379,15 @@ class BuyerClient:
 
         self.logout()
 
+        # Get server operations and time
+        response = requests.get(self.base_url + '/getServerInfo')
+        response_text = json.loads(response.text)
+        experiment_time = response_text['time'] - start
+        n_operations = response_text['n_ops']
+
         # Compute the average response time
-        return sum(self.response_times) / len(self.response_times)
+        average_response_time = sum(self.response_times) / len(self.response_times)
+        return average_response_time, experiment_time, n_operations
 
 
 if __name__ == "__main__":

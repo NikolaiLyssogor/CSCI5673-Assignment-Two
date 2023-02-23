@@ -4,6 +4,7 @@ import database_pb2_grpc
 
 import pickle
 import json
+import time
 from flask import Flask, request, Response
 
 # Define Flask service
@@ -14,9 +15,13 @@ customer_stub = database_pb2_grpc.databaseStub(customer_channel)
 # Stub for communicating with product database
 product_channel = grpc.insecure_channel('localhost:50052')
 product_stub = database_pb2_grpc.databaseStub(product_channel)
+# Used for tracking throughput
+n_ops = 0
 
 @app.route('/createAccount', methods=['POST'])
 def createAccount():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm, pwd = data['username'], data['password']
 
@@ -57,6 +62,8 @@ def createAccount():
 
 @app.route('/login', methods=['POST'])
 def login():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm, pwd = data['username'], data['password']
 
@@ -99,6 +106,8 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm = data['username']
     sql = f"""
@@ -121,6 +130,8 @@ def logout():
 
 @app.route('/checkIfLoggedIn', methods=['POST'])
 def check_if_logged_in():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm = data['username']
 
@@ -149,6 +160,8 @@ def check_if_logged_in():
 
 @app.route('/getSellerRating/<string:unm>', methods=['GET'])
 def get_seller_rating(unm):
+    global n_ops
+    n_ops += 1
     sql = f"""
         SELECT thumbs_up, thumbs_down FROM sellers
         WHERE username = '{unm}'
@@ -172,6 +185,8 @@ def get_seller_rating(unm):
 
 @app.route('/sellItem', methods=['POST'])
 def sell_item():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
 
     sql = f"""
@@ -196,6 +211,8 @@ def sell_item():
 
 @app.route('/listItems/<string:unm>', methods=['GET'])
 def list_items(unm):
+    global n_ops
+    n_ops += 1
     sql = f"SELECT ROWID, * FROM products WHERE seller = '{unm}'"
 
     try:
@@ -233,6 +250,8 @@ def list_items(unm):
 
 @app.route('/deleteItem', methods=['PUT'])
 def delete_item():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
 
     # Do some checks before deleting
@@ -281,6 +300,8 @@ def delete_item():
 
 @app.route('/changeItemPrice', methods=['PUT'])
 def change_item_price():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
 
     # Check if this is the user's item before changing the price
@@ -333,6 +354,17 @@ def query_database(sql: str, db: str):
     query = database_pb2.databaseRequest(query=sql)
     db_response = stub.queryDatabase(request=query)
     return pickle.loads(db_response.db_response)
+
+@app.route('/getServerInfo', methods=['GET'])
+def get_server_info():
+    global n_ops
+    n_ops += 1
+    response = json.dumps({
+        'time': time.time(),
+        'n_ops': n_ops
+    })
+    return Response(response=response, status=200)
+
     
 
 if __name__ == "__main__":

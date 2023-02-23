@@ -314,6 +314,7 @@ class SellerClient:
                         exit(130)            
 
     def test(self, delay):
+        start = time.time()
         # Call functions randomly after logging in
         self.create_account()
         time.sleep(delay)
@@ -331,8 +332,15 @@ class SellerClient:
 
         self.logout()
 
+        # Get server operations and time
+        response = requests.get(self.base_url + '/getServerInfo')
+        response_text = json.loads(response.text)
+        experiment_time = response_text['time'] - start
+        n_operations = response_text['n_ops']
+
         # Compute the average response time
-        return sum(self.response_times) / len(self.response_times)
+        average_response_time = sum(self.response_times) / len(self.response_times)
+        return average_response_time, experiment_time, n_operations
 
 
 if __name__ == "__main__":

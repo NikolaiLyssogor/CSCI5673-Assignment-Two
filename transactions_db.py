@@ -81,7 +81,8 @@ def init_database():
             cc_exp TEXT NOT NULL,
             item_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
-            buyer_name TEXT NOT NULL
+            buyer_name TEXT NOT NULL,
+            seller_name TEXT NOT NULL
             )
         """)
         con.commit()

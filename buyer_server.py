@@ -5,6 +5,7 @@ import database_pb2_grpc
 import pickle
 import json
 import random
+import time
 from flask import Flask, request, Response
 from zeep import Client
 
@@ -19,10 +20,14 @@ product_channel = grpc.insecure_channel('localhost:50052')
 product_stub = database_pb2_grpc.databaseStub(product_channel)
 # Stub for communicating with the SOAP transactions database
 soap_client = Client('http://localhost:8000/?wsdl')
+# Used for tracking throughput
+n_ops = 0
 
 
 @app.route('/createAccount', methods=['POST'])
 def createAccount():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm, pwd = data['username'], data['password']
 
@@ -63,6 +68,8 @@ def createAccount():
 
 @app.route('/login', methods=['POST'])
 def login():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm, pwd = data['username'], data['password']
 
@@ -105,6 +112,8 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm = data['username']
     sql = f"""
@@ -127,6 +136,8 @@ def logout():
 
 @app.route('/checkIfLoggedIn', methods=['POST'])
 def check_if_logged_in():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     unm = data['username']
 
@@ -154,6 +165,8 @@ def check_if_logged_in():
         return Response(response=response, status=200)
 @app.route('/search', methods=['POST'])
 def search():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     sql = f"SELECT rowid, * FROM products WHERE category = {data['category']}"
     for keyword in data['keywords']:
@@ -178,6 +191,8 @@ def search():
 
 @app.route('/addItemsToCart', methods=['POST'])
 def add_items_to_cart():
+    global n_ops
+    n_ops += 1
     data = json.loads(request.data)
     sql = f"SELECT rowid, * FROM products WHERE rowid = {data['item_id']}"
 
@@ -213,6 +228,8 @@ def add_items_to_cart():
 
 @app.route('/getSellerRatingByID/<string:seller_id>', methods=['GET'])
 def get_seller_rating_by_id(seller_id):
+    global n_ops
+    n_ops += 1
     sql = f"SELECT rowid, * from sellers WHERE rowid = {seller_id}"
     try:
         db_response = query_database(sql, 'customer')
@@ -237,6 +254,8 @@ def get_seller_rating_by_id(seller_id):
 
 @app.route('/makePurchase', methods=['POST'])
 def make_purchase():
+    global n_ops
+    n_ops += 1
     # Return "payment error" with 0.1 probability
     if random.random() < 0.1:
         response = json.dumps({'status': 'Error: payment failed. Try again.'})
@@ -265,7 +284,7 @@ def make_purchase():
         # Make the transaction
         sql = f"""
         INSERT INTO transactions ('cc_name', 'cc_number', 'cc_exp', 'item_id', 'quantity', 'buyer_name', 'seller_name') VALUES
-        ('{data['cc_name']}', '{data['cc_number']}', '{data['cc_exp']}', {item_id}, {new_qty}, '{data['username']}', {seller})
+        ('{data['cc_name']}', '{data['cc_number']}', '{data['cc_exp']}', {item_id}, {new_qty}, '{data['username']}', '{seller}')
         """
         db_response = query_database(sql, 'transaction') # Check 'Error' or 'Status' if needed
 
@@ -293,6 +312,8 @@ def make_purchase():
 
 @app.route('/getPurchaseHistory/<string:unm>', methods=['GET'])
 def get_purchase_history(unm):
+    global n_ops
+    n_ops += 1
     sql = f"SELECT items_purchased FROM buyers WHERE username = '{unm}'"
     try:
         db_response = query_database(sql, 'customer')
@@ -345,6 +366,16 @@ def query_database(sql: str, db: str):
         query = database_pb2.databaseRequest(query=sql)
         db_response = stub.queryDatabase(request=query)
         return pickle.loads(db_response.db_response)
+
+@app.route('/getServerInfo', methods=['GET'])
+def get_server_info():
+    global n_ops
+    n_ops += 1
+    response = json.dumps({
+        'time': time.time(),
+        'n_ops': n_ops
+    })
+    return Response(response=response, status=200)
     
 
 if __name__ == "__main__":
