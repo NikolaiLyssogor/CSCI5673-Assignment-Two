@@ -27,7 +27,7 @@ class BuyerClient:
             'make purchase': self.make_purchase,
             # 'provide feedback': self.provide_feedback,
             'get seller rating': self.get_seller_rating_by_id,
-            # 'get purchase history': self.get_purchase_history,
+            'get purchase history': self.get_purchase_history,
             'exit': None # handled differently due to different args
         }
 
@@ -248,6 +248,20 @@ class BuyerClient:
         print("\n", response_text['status'])
         if 'Error' not in response_text['status']:
             self.clear_cart()
+
+    def get_purchase_history(self):
+        if not self.check_if_logged_in():
+            print("\nYou must log in to view your purchase history.")
+            return None
+
+        url = self.base_url + '/getPurchaseHistory/' + self.username
+        response = requests.get(url)
+        response_text = json.loads(response.text)
+
+        if 'Error' in response_text['status']:
+            print('\n', response_text['status'])
+        else:
+            print(f"\nYou have purchased {response_text['items_purchased']} items.")
 
     def _get_route(self, route: str):
         return self.routes[route]

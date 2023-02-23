@@ -264,8 +264,8 @@ def make_purchase():
     for item_id, new_qty, seller in items_info:
         # Make the transaction
         sql = f"""
-        INSERT INTO transactions ('cc_name', 'cc_number', 'cc_exp', 'item_id', 'quantity', 'buyer_name') VALUES
-        ('{data['cc_name']}', '{data['cc_number']}', '{data['cc_exp']}', {item_id}, {new_qty}, '{data['username']}')
+        INSERT INTO transactions ('cc_name', 'cc_number', 'cc_exp', 'item_id', 'quantity', 'buyer_name', 'seller_name') VALUES
+        ('{data['cc_name']}', '{data['cc_number']}', '{data['cc_exp']}', {item_id}, {new_qty}, '{data['username']}', {seller})
         """
         db_response = query_database(sql, 'transaction') # Check 'Error' or 'Status' if needed
 
@@ -290,6 +290,25 @@ def make_purchase():
 
     response = json.dumps({'status': 'Success: Transaction completed without errors'})
     return Response(response=response, status=200)
+
+@app.route('/getPurchaseHistory/<string:unm>', methods=['GET'])
+def get_purchase_history(unm):
+    sql = f"SELECT items_purchased FROM buyers WHERE username = '{unm}'"
+    try:
+        db_response = query_database(sql, 'customer')
+    except:
+        response = json.dumps({'status': 'Error: Failed to connect to database'})
+        return Response(response=response, status=500)
+    else:
+        if isinstance(db_response, dict):
+            return Response(response=db_response, status=500)
+
+        items_purchased = db_response[0][0]
+        response = json.dumps({
+            'status': 'Success: Operation executed without errors',
+            'items_purchased': items_purchased
+        })
+        return Response(response=response, status=200)
 
 def products_query_to_json(db_response):
     items = []
