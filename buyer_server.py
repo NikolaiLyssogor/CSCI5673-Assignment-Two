@@ -4,8 +4,9 @@ import database_pb2_grpc
 
 import pickle
 import json
+import random
 from flask import Flask, request, Response
-from suds.client import Client
+from zeep import Client
 
 
 # Define Flask service
@@ -17,7 +18,7 @@ customer_stub = database_pb2_grpc.databaseStub(customer_channel)
 product_channel = grpc.insecure_channel('localhost:50052')
 product_stub = database_pb2_grpc.databaseStub(product_channel)
 # Stub for communicating with the SOAP transactions database
-soap_client = Client('http://localhost:7789/?wsdl')
+soap_client = Client('http://localhost:8000/?wsdl')
 
 
 @app.route('/createAccount', methods=['POST'])
@@ -234,8 +235,61 @@ def get_seller_rating_by_id(seller_id):
     })
     return Response(response=response, status=200)
 
-# @app.route('/makePurchase', methods=['POST'])
-# def 
+@app.route('/makePurchase', methods=['POST'])
+def make_purchase():
+    # Return "payment error" with 0.1 probability
+    if random.random() < 0.1:
+        response = json.dumps({'status': 'Error: payment failed. Try again.'})
+        return Response(response=response, status=500)
+
+    # Check that the items exist/have enough in stock
+    data = json.loads(request.data)
+    
+    items_info = []
+    for item_id, req_qty in data['items']:
+        sql = f"SELECT seller, quantity FROM products WHERE rowid = {item_id}"
+        db_response = query_database(sql, 'product')
+
+        if not db_response:
+            response = json.dumps({'status': 'Error: One of your items does not exist or is no longer available'})
+            return Response(response=response, status=400)
+
+        seller, act_qty = db_response[0][0], db_response[0][1]
+        if act_qty < req_qty:
+            response = json.dumps({'status': 'Error: One of your items is no longer available in the quantity you requested'})
+            return Response(response=response, status=400)
+
+        items_info.append((item_id, act_qty-req_qty, seller))
+
+    for item_id, new_qty, seller in items_info:
+        # Make the transaction
+        sql = f"""
+        INSERT INTO transactions ('cc_name', 'cc_number', 'cc_exp', 'item_id', 'quantity', 'buyer_name') VALUES
+        ('{data['cc_name']}', '{data['cc_number']}', '{data['cc_exp']}', {item_id}, {new_qty}, '{data['username']}')
+        """
+        db_response = query_database(sql, 'transaction') # Check 'Error' or 'Status' if needed
+
+        # Lower the quantity available/delete the item
+        if new_qty == 0:
+            sql = f"DELETE FROM products WHERE rowid = {item_id}"
+        else:
+            sql = f"UPDATE products SET quantity = {new_qty} WHERE seller = '{seller}'"
+        db_response = query_database(sql, 'product')
+
+        # Increment the seller's items sold
+        sql = f"UPDATE sellers SET items_sold = items_sold + 1 WHERE rowid = {item_id}"
+        db_response = query_database(sql, 'customer')
+
+    # Increment the buyer's items bought
+    sql = f"""
+    UPDATE buyers
+    SET items_purchased = items_purchased + {len(items_info)}
+    WHERE username = '{data['username']}'
+    """
+    db_response = query_database(sql, 'customer')
+
+    response = json.dumps({'status': 'Success: Transaction completed without errors'})
+    return Response(response=response, status=200)
 
 def products_query_to_json(db_response):
     items = []
@@ -260,14 +314,18 @@ def query_database(sql: str, db: str):
     Sends a query over gRPC to the database and returns 
     the object that the database returns.
     """
-    if db == 'product':
-        stub = product_stub
-    elif db == 'customer':
-        stub = customer_stub
+    if db == 'transaction':
+        db_response = soap_client.service.query_database(sql)
+        return pickle.loads(db_response)
+    else:
+        if db == 'product':
+            stub = product_stub
+        elif db == 'customer':
+            stub = customer_stub
 
-    query = database_pb2.databaseRequest(query=sql)
-    db_response = stub.queryDatabase(request=query)
-    return pickle.loads(db_response.db_response)
+        query = database_pb2.databaseRequest(query=sql)
+        db_response = stub.queryDatabase(request=query)
+        return pickle.loads(db_response.db_response)
     
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ class BuyerClient:
             'remove item from cart': self.remove_item_from_cart,
             'clear cart': self.clear_cart,
             'display cart': self.display_cart,
-            # 'make purchase': self.make_purchase,
+            'make purchase': self.make_purchase,
             # 'provide feedback': self.provide_feedback,
             'get seller rating': self.get_seller_rating_by_id,
             # 'get purchase history': self.get_purchase_history,
@@ -217,6 +217,37 @@ class BuyerClient:
         else:
             tu, td = response_text['thumbs_up'], response_text['thumbs_down']
             print(f"\nSeller with ID {seller_id} has {tu} thumbs up and {td} thumbs down")
+
+    def make_purchase(self):
+        if not self.check_if_logged_in():
+            print("\nYou must log in to make a purchase.")
+            return None
+
+        if not self.cart:
+            print("\nPlease add items to your cart before attempting to make a purchase.")
+            return None
+
+        if self.debug:
+            print("\nWe need the following payment information:")
+            cc_name = input("Name on payment card: ")
+            cc_number = input("Card number: ")
+            cc_exp = input("Card expiration date: ")
+
+        data = json.dumps({
+            'cc_name': cc_name,
+            'cc_number': cc_number,
+            'cc_exp': cc_exp,
+            'username': self.username,
+            'items': [(item['id'], item['quantity'])
+                        for item in self.cart]
+        })
+        url = self.base_url + '/makePurchase'
+        response = requests.post(url, headers=self.headers, data=data)
+        response_text = json.loads(response.text)
+
+        print("\n", response_text['status'])
+        if 'Error' not in response_text['status']:
+            self.clear_cart()
 
     def _get_route(self, route: str):
         return self.routes[route]

@@ -8,37 +8,28 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 import pickle
 
-class customerDBServicer(database_pb2_grpc.databaseServicer):
+class productDBServicer(database_pb2_grpc.databaseServicer):
 
     def __init__(self):
         """
         Reinitializes the tables, creates the cursor
         and connection objects.
         """
-        with sqlite3.connect('customers.db') as con:
+        with sqlite3.connect('products.db') as con:
             cur = con.cursor()
 
-            # Create sellers table
-            cur.execute("DROP TABLE IF EXISTS sellers")
+            # Create products table
+            cur.execute("DROP TABLE IF EXISTS products")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS sellers (
-                username TEXT NOT NULL, 
-                password TEXT NOT NULL, 
-                thumbs_up INTEGER DEFAULT 0, 
-                thumbs_down INTEGER DEFAULT 0, 
-                items_sold INTEGER DEFAULT 0,
-                is_logged_in TEXT DEFAULT 'false'
-                )
-            """)
-
-            # Create buyers table
-            cur.execute("DROP TABLE IF EXISTS buyers")
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS buyers (
-                username TEXT NOT NULL,
-                password TEXT NOT NULL,
-                items_purchased INTEGER DEFAULT 0,
-                is_logged_in TEXT DEFAULT 'false'
+                CREATE TABLE IF NOT EXISTS products (
+                name TEXT NOT NULL,
+                category INTEGER NOT NULL,
+                keywords TEXT NOT NULL,
+                condition TEXT NOT NULL,
+                price REAL NOT NULL,
+                quantity INTEGER NOT NULL,
+                seller TEXT NOT NULL,
+                status TEXT DEFAULT 'For Sale'
                 )
             """)
             con.commit()
@@ -49,7 +40,7 @@ class customerDBServicer(database_pb2_grpc.databaseServicer):
         other operations go through updateDatabase.
         """
         print(request.query)
-        with sqlite3.connect('customers.db') as con:
+        with sqlite3.connect('products.db') as con:
             try:
                 cur = con.cursor()
                 db_resp = cur.execute(request.query)
@@ -64,12 +55,12 @@ class customerDBServicer(database_pb2_grpc.databaseServicer):
                 serv_resp = pickle.dumps({'status': 'Error: Bad query or unable to connect'})
             finally:
                 return database_pb2.databaseResponse(db_response=serv_resp)
-        
+
 
 if __name__ == "__main__":
     # Start the server
     server = grpc.server(ThreadPoolExecutor(max_workers=10))
-    database_pb2_grpc.add_databaseServicer_to_server(customerDBServicer(), server)
-    server.add_insecure_port('[::]:50051')
+    database_pb2_grpc.add_databaseServicer_to_server(productDBServicer(), server)
+    server.add_insecure_port('[::]:50052')
     server.start()
     server.wait_for_termination()
