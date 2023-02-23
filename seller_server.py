@@ -10,10 +10,10 @@ from flask import Flask, request, Response
 # Define Flask service
 app = Flask(__name__)
 # Stub for communicating with customer database
-customer_channel = grpc.insecure_channel('localhost:50051')
+customer_channel = grpc.insecure_channel('35.223.40.99:50051')
 customer_stub = database_pb2_grpc.databaseStub(customer_channel)
 # Stub for communicating with product database
-product_channel = grpc.insecure_channel('localhost:50052')
+product_channel = grpc.insecure_channel('35.223.9.212:50052')
 product_stub = database_pb2_grpc.databaseStub(product_channel)
 # Used for tracking throughput
 n_ops = 0
