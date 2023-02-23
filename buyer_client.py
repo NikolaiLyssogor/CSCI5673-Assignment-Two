@@ -3,6 +3,8 @@ import json
 import time
 import random
 import pprint
+import numpy as np
+import string
 
 pp = pprint.PrettyPrinter()
 
@@ -31,6 +33,10 @@ class BuyerClient:
             'exit': None # handled differently due to different args
         }
 
+        self.response_times = []
+        self.username = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+        self.random_password = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+
     def create_account(self):
          # User cannot create account if logged in
         if self.check_if_logged_in():
@@ -42,23 +48,18 @@ class BuyerClient:
                 username = input("\nusername: ")
                 password = input("password: ")
             else:
-                pass
-                # username, password = self.benchmarker.get_username_and_password()
+                username, password = self.username, self.random_password
 
             data = json.dumps({
                 'username': username,
                 'password': password
             })
 
-            # Call the handler to send request and receive response
-            # start = time.time()
+            start = time.time()
             url = self.base_url + '/createAccount'
             response = requests.post(url, headers=self.headers, data=data)
-            # end = time.time()
-
-            if not self.debug:
-                pass
-                # self.benchmarker.log_response_time(end-start)
+            end = time.time()
+            self.response_times.append(end-start)
 
             print('\n', json.loads(response.text)['status'])
 
@@ -76,23 +77,18 @@ class BuyerClient:
                 username = input("\nusername: ")
                 password = input("password: ")
             else:
-                # Login with any account that's already been created
-                # username, password = random.choice(self.benchmarker.accounts)
-                pass
+                username, password = self.username, self.random_password
 
             data = json.dumps({
                 'username': username,
                 'password': password
             })
 
-            # Send request to the seller server
-            # start = time.time()
+            start = time.time()
             url = self.base_url + '/login'
             response = requests.post(url, headers=self.headers, data=data)
-            # end = time.time()
-
-            # if not self.debug:
-            #     self.benchmarker.log_response_time(end-start)
+            end = time.time()
+            self.response_times.append(end-start)
 
             response_text = json.loads(response.text)
             if 'Success' in response_text['status']:
@@ -104,7 +100,12 @@ class BuyerClient:
         if self.username:
             data = json.dumps({'username': self.username})
             url = self.base_url + '/logout'
+
+            start = time.time()
             response = requests.post(url, headers=self.headers, data=data)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
 
             print('\n', response_text['status'])
@@ -117,7 +118,12 @@ class BuyerClient:
         """
         data = json.dumps({'username': self.username})
         url = self.base_url + '/checkIfLoggedIn'
+
+        start = time.time()
         response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
         return response_text['is_logged_in']
 
@@ -126,17 +132,29 @@ class BuyerClient:
         Results in the specified category or matching
         any of the keywords get returned.
         """
+        if not self.check_if_logged_in():
+            print("\nYou must be logged in to perform this action.")
+            return None
+
         if self.debug:
             print("Please provide the following information.")
             category = int(input("\nCategory (0-9): "))
             keywords = input("Keywords: ").split(',')
+        else:
+            category = random.choice(range(10))
+            keywords = ','.join([self._get_random_string(3) for _ in range(4)])
         
         data = json.dumps({
             'category': category,
             'keywords': keywords
         })
         url = self.base_url + '/search'
+
+        start = time.time()
         response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
 
         if 'Error' in response_text['status']:
@@ -152,14 +170,25 @@ class BuyerClient:
         if not self.check_if_logged_in():
             print("\nYou must log in before adding items to your cart.")
         else:
-            item_id = int(input("\nID for the item you wish to add to your cart: "))
-            quantity = int(input("Number of this item you wish to add to your cart: "))
+            if self.debug:
+                item_id = int(input("\nID for the item you wish to add to your cart: "))
+                quantity = int(input("Number of this item you wish to add to your cart: "))
+                
+            else:
+                item_id = random.choice(range(1000))
+                quantity = random.choice(range(5))
+
             data = json.dumps({
-                'item_id': item_id,
-                'quantity': quantity
-            })
+                    'item_id': item_id,
+                    'quantity': quantity
+                })
             url = self.base_url + '/addItemsToCart'
+
+            start = time.time()
             response = requests.post(url, headers=self.headers, data=data)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
 
             if 'Error' in response_text['status']:
@@ -204,12 +233,22 @@ class BuyerClient:
                 pp.pprint(item)
 
     def get_seller_rating_by_id(self):
+        if not self.check_if_logged_in():
+            print("\nYou must be logged in to perform this action.")
+            return None
+
         if self.debug:
-            # Get seller ID from user
             seller_id = input("\nPlease provide the ID for the seller whose rating you wish to view.\n")
+        else:
+            seller_id = str(random.choice(range(1, 11)))
 
         url = self.base_url + '/getSellerRatingByID/' + seller_id
+
+        start = time.time()
         response = requests.get(url)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
 
         if 'Error' in response_text['status']:
@@ -232,6 +271,10 @@ class BuyerClient:
             cc_name = input("Name on payment card: ")
             cc_number = input("Card number: ")
             cc_exp = input("Card expiration date: ")
+        else:
+            cc_name = self._get_random_string(4)
+            cc_number = self._get_random_string(16)
+            cc_exp = self._get_random_string(5)
 
         data = json.dumps({
             'cc_name': cc_name,
@@ -242,7 +285,12 @@ class BuyerClient:
                         for item in self.cart]
         })
         url = self.base_url + '/makePurchase'
+
+        start = time.time()
         response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
 
         print("\n", response_text['status'])
@@ -255,7 +303,12 @@ class BuyerClient:
             return None
 
         url = self.base_url + '/getPurchaseHistory/' + self.username
+
+        start = time.time()
         response = requests.get(url)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
 
         if 'Error' in response_text['status']:
@@ -263,8 +316,12 @@ class BuyerClient:
         else:
             print(f"\nYou have purchased {response_text['items_purchased']} items.")
 
+
     def _get_route(self, route: str):
         return self.routes[route]
+
+    def _get_random_string(self, n: int) -> str:
+        return ''.join(random.choice(string.ascii_lowercase) for _ in range(n))
             
     def serve(self):
         """
@@ -300,31 +357,29 @@ class BuyerClient:
                         # Logout then actually exit
                         self.logout()
                         exit(130)
-        else:
-            exit()
-            # # Calls functions in a predetermined order
-            # self.create_account()
-            # time.sleep(0.5)
-            # self.login()
-            # time.sleep(0.5)
-            # for _ in range(600):
-            #     self.sell_item()
-            #     time.sleep(0.5)
-            # for _ in range(300):
-            #     self.remove_item()
-            #     time.sleep(0.5)
-            # for _ in range(98):
-            #     self.list_items()
-            #     time.sleep(0.5)
 
-            # # Print average response time
-            # avg_response_time = self.benchmarker.compute_average_response_time()
-            # print("#######################################")
-            # print(f"Seller average response time: {avg_response_time}")
-            # print("***************************************")
+    def test(self, delay):
+        # Call functions randomly after logging in
+        self.create_account()
+        time.sleep(delay)
+        self.login()
+        time.sleep(delay)
 
-            # with open('art_dump.txt', 'a') as f:
-            #     f.write(str(avg_response_time) + '\n')
+        # Call functions randomly
+        functions = [
+            self.search, self.add_items_to_cart, self.make_purchase,
+            self.get_seller_rating_by_id, self.get_purchase_history,
+        ]
+        probs = [0.24, 0.24, 0.04, 0.24, 0.24]
+
+        for _ in range(500): # Each function calls check_if_logged_in, which calls server
+            np.random.choice(functions, size=1, p=probs)[0]()
+            time.sleep(delay)
+
+        self.logout()
+
+        # Compute the average response time
+        return sum(self.response_times) / len(self.response_times)
 
 
 if __name__ == "__main__":

@@ -3,12 +3,14 @@ import json
 import time
 import random
 import pprint
+import string
+import numpy as np
 
 pp = pprint.PrettyPrinter()
 
 class SellerClient:
 
-    def __init__(self, server_ip : str = '0.0.0.0:5000', debug : bool = True):
+    def __init__(self, server_ip : str = '0.0.0.0:5000', debug: bool = True):
         self.username = ""
         self.debug = debug
         self.base_url = 'http://' + server_ip
@@ -26,6 +28,11 @@ class SellerClient:
             'exit': None # handled differently due to different args
         }
 
+        # Attributes for automating the testing
+        self.response_times = []
+        self.username = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+        self.random_password = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+
     def create_account(self):
          # User cannot create account if logged in
         if self.check_if_logged_in():
@@ -37,23 +44,20 @@ class SellerClient:
                 username = input("\nusername: ")
                 password = input("password: ")
             else:
-                pass
-                # username, password = self.benchmarker.get_username_and_password()
+                username, password = self.username, self.random_password
 
             data = json.dumps({
                 'username': username,
                 'password': password
             })
 
-            # Call the handler to send request and receive response
-            # start = time.time()
+            start = time.time()
             url = self.base_url + '/createAccount'
             response = requests.post(url, headers=self.headers, data=data)
-            # end = time.time()
+            end = time.time()
 
             if not self.debug:
-                pass
-                # self.benchmarker.log_response_time(end-start)
+                self.response_times.append(end-start)
 
             print('\n', json.loads(response.text)['status'])
 
@@ -71,23 +75,20 @@ class SellerClient:
                 username = input("\nusername: ")
                 password = input("password: ")
             else:
-                # Login with any account that's already been created
-                # username, password = random.choice(self.benchmarker.accounts)
-                pass
+                username, password = self.username, self.random_password
 
             data = json.dumps({
                 'username': username,
                 'password': password
             })
 
-            # Send request to the seller server
-            # start = time.time()
+            start = time.time()
             url = self.base_url + '/login'
             response = requests.post(url, headers=self.headers, data=data)
-            # end = time.time()
+            end = time.time()
 
-            # if not self.debug:
-            #     self.benchmarker.log_response_time(end-start)
+            if not self.debug:
+                self.response_times.append(end-start)
 
             response_text = json.loads(response.text)
             if 'Success' in response_text['status']:
@@ -99,7 +100,12 @@ class SellerClient:
         if self.username:
             data = json.dumps({'username': self.username})
             url = self.base_url + '/logout'
+
+            start = time.time()
             response = requests.post(url, headers=self.headers, data=data)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
 
             print('\n', response_text['status'])
@@ -112,7 +118,12 @@ class SellerClient:
         """
         data = json.dumps({'username': self.username})
         url = self.base_url + '/checkIfLoggedIn'
+
+        start = time.time()
         response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
         return response_text['is_logged_in']
 
@@ -122,7 +133,12 @@ class SellerClient:
             return None
 
         url = self.base_url + f'/getSellerRating/{self.username}'
+
+        start = time.time()
         response = requests.get(url)
+        end = time.time()
+        self.response_times.append(end-start)
+
         response_text = json.loads(response.text)
 
         if 'Error' in response_text['status']:
@@ -157,22 +173,27 @@ class SellerClient:
                     'status': 'For Sale',
                     'buyer': None
                 }
-            # else:
-            #     item = {
-            #         'name': ''.join(random.choice(string.ascii_lowercase) for _ in range(10)),
-            #         'category': random.choice(range(10)),
-            #         'keywords': self.benchmarker.get_keywords(),
-            #         'condition': random.choice(['New', 'Used']),
-            #         'price': round(random.uniform(0, 100), 2),
-            #         'quantity': random.choice(range(1,6)),
-            #         'seller': self.username,
-            #         'status': 'For Sale',
-            #         'buyer': None
-            #     }
+            else:
+                item = {
+                    'name': self._get_random_string(6),
+                    'category': random.choice(range(10)),
+                    'keywords': ','.join([self._get_random_string(3) for _ in range(4)]),
+                    'condition': random.choice(['New', 'Used']),
+                    'price': round(random.uniform(0, 100), 2),
+                    'quantity': random.choice(range(1,6)),
+                    'seller': self.username,
+                    'status': 'For Sale',
+                    'buyer': None
+                }
 
             data = json.dumps(item)
             url = self.base_url + '/sellItem'
+
+            start = time.time()
             response = requests.post(url, data=data, headers=self.headers)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
             print('\n', response_text['status'])
 
@@ -181,13 +202,22 @@ class SellerClient:
             print("\nYou must be logged in to sell an item.")
         else:
             url = self.base_url + f'/listItems/{self.username}'
+
+            start = time.time()
             response = requests.get(url)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
 
             if 'Error' in response_text['status']:
                 print(response_text['status'])
+            elif not response_text['items']:
+                print("\nYou currently have no items listed for sale")
             else:
+                print("\nYou have the following items listed for sale:")
                 for item in response_text['items']:
+                    print("")
                     pp.pprint(item)
 
     def remove_item(self):
@@ -198,9 +228,8 @@ class SellerClient:
                 id = int(input("\nEnter the ID of the item you would like to remove: "))
                 quantity = input("How many of this item do you want to remove? ")
             else:
-                # Randomly remove 2 items with ids in [0, 500]
-                # ids = [random.choice(range(500)) for _ in range(2)]
-                pass
+                id = random.choice(range(1, 1000))
+                quantity = random.choice(range(1, 3))
 
             data = json.dumps({
                 'username': self.username,
@@ -208,7 +237,12 @@ class SellerClient:
                 'quantity': int(quantity)
             })
             url = self.base_url + '/deleteItem'
+
+            start = time.time()
             response = requests.put(url, headers=self.headers, data=data)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
             print('\n', response_text['status'])
 
@@ -218,24 +252,31 @@ class SellerClient:
         else:
             if self.debug:
                 id = int(input("\nEnter the ID of the item whose price you wish to change: "))
-                new_price = input("What shall be the new price? ")
+                new_price = round(float(input("What shall be the new price? ")), 2)
             else:
-                # Randomly remove 2 items with ids in [0, 500]
-                # ids = [random.choice(range(500)) for _ in range(2)]
-                pass
+                id = random.choice(range(1, 1000))
+                new_price = round(random.uniform(0, 100), 2)
 
             data = json.dumps({
                 'username': self.username,
                 'item_id': id,
-                'new_price': round(float(new_price), 2)
+                'new_price': new_price
             })
             url = self.base_url + '/changeItemPrice'
+
+            start = time.time()
             response = requests.put(url, headers=self.headers, data=data)
+            end = time.time()
+            self.response_times.append(end-start)
+
             response_text = json.loads(response.text)
             print('\n', response_text['status'])
 
     def _get_route(self, route: str):
         return self.routes[route]
+
+    def _get_random_string(self, n: int) -> str:
+        return ''.join(random.choice(string.ascii_lowercase) for _ in range(n))
             
     def serve(self):
         """
@@ -270,32 +311,28 @@ class SellerClient:
                 except KeyboardInterrupt:
                         # Logout then actually exit
                         self.logout()
-                        exit(130)
-        else:
-            exit()
-            # # Calls functions in a predetermined order
-            # self.create_account()
-            # time.sleep(0.5)
-            # self.login()
-            # time.sleep(0.5)
-            # for _ in range(600):
-            #     self.sell_item()
-            #     time.sleep(0.5)
-            # for _ in range(300):
-            #     self.remove_item()
-            #     time.sleep(0.5)
-            # for _ in range(98):
-            #     self.list_items()
-            #     time.sleep(0.5)
+                        exit(130)            
 
-            # # Print average response time
-            # avg_response_time = self.benchmarker.compute_average_response_time()
-            # print("#######################################")
-            # print(f"Seller average response time: {avg_response_time}")
-            # print("***************************************")
+    def test(self, delay):
+        # Call functions randomly after logging in
+        self.create_account()
+        time.sleep(delay)
+        self.login()
+        time.sleep(delay)
 
-            # with open('art_dump.txt', 'a') as f:
-            #     f.write(str(avg_response_time) + '\n')
+        # Call functions randomly
+        functions = [self.get_seller_rating, self.sell_item, self.list_items,
+                        self.remove_item, self.change_item_price]
+        probs = [0.24, 0.04, 0.24, 0.24, 0.24]
+
+        for _ in range(500): # Each function calls check_if_logged_in, which makes RPC
+            np.random.choice(functions, size=1, p=probs)[0]()
+            time.sleep(delay)
+
+        self.logout()
+
+        # Compute the average response time
+        return sum(self.response_times) / len(self.response_times)
 
 
 if __name__ == "__main__":

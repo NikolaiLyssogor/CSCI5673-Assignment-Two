@@ -173,19 +173,10 @@ def get_seller_rating(unm):
 @app.route('/sellItem', methods=['POST'])
 def sell_item():
     data = json.loads(request.data)
-    """
-                name TEXT NOT NULL,
-                category INTEGER NOT NULL,
-                keywords TEXT NOT NULL,
-                condition TEXT NOT NULL,
-                price REAL NOT NULL,
-                quantity INTEGER NOT NULL,
-                seller TEXT NOT NULL,
-                status TEXT NOT NULL,
-            """
+
     sql = f"""
         INSERT INTO products
-        (name, category, keywords, condition, price, quantity, seller) VALUES
+        ('name', 'category', 'keywords', 'condition', 'price', 'quantity', 'seller') VALUES
         ('{data['name']}', '{data['category']}', '{data['keywords']}', '{data['condition']}',
         '{data['price']}', '{data['quantity']}', '{data['seller']}')
     """
@@ -296,7 +287,7 @@ def change_item_price():
     sql = f"""
         SELECT rowid FROM products
         WHERE seller = '{data['username']}'
-          AND ROWID = '{data['item_id']}'
+          AND ROWID = {data['item_id']}
     """
     try:
         db_response = query_database(sql, 'product')
@@ -307,8 +298,7 @@ def change_item_price():
         if isinstance(db_response, dict):
             response = json.dumps(db_response)
             return Response(response=response, status=500)
-        else:
-            if not db_response:
+        elif not db_response:
                 response = json.dumps({'status': 'Error: You are not the one selling this item'})
                 return Response(response=response, status=400)    
 
