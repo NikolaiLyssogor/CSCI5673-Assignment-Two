@@ -28,6 +28,7 @@ n_ops = 0
 def createAccount():
     global n_ops
     n_ops += 1
+
     data = json.loads(request.data)
     unm, pwd = data['username'], data['password']
 
@@ -133,36 +134,54 @@ def logout():
             response = json.dumps({'status': 'Success: You have logged out'})
             return Response(response=response, status=200)
 
+# def check_if_logged_in():
+#     data = json.loads(request.data)
+#     unm = data['username']
 
-@app.route('/checkIfLoggedIn', methods=['POST'])
-def check_if_logged_in():
-    global n_ops
-    n_ops += 1
-    data = json.loads(request.data)
-    unm = data['username']
+#     try:
+#         # Check the DB if the user is logged in
+#         sql = f"SELECT is_logged_in FROM buyers WHERE username = '{unm}'"
+#         db_response = query_database(sql, 'customer')
+#     except:
+#         # Return database connection error
+#         response = json.dumps({'status': 'Error: Failed to connect to database'})
+#         return Response(response=response, status=500)
+#     else:
+#         # DB server couldn't connect to DB
+#         if isinstance(db_response, dict):
+#             return Response(response=db_response, status=500)
+        
+#         if not db_response:
+#             # No such account so not logged in
+#             response = json.dumps({'is_logged_in': False})
+#         else:
+#             # Account exists: Check if logged in or not
+#             is_logged_in = True if db_response[0][0] == 'true' else False
+#             response = json.dumps({'is_logged_in': is_logged_in})
 
+#         return Response(response=response, status=200)
+
+def check_if_logged_in(username: str) -> dict:
     try:
         # Check the DB if the user is logged in
-        sql = f"SELECT is_logged_in FROM buyers WHERE username = '{unm}'"
+        sql = f"SELECT is_logged_in FROM buyers WHERE username = '{username}'"
         db_response = query_database(sql, 'customer')
     except:
         # Return database connection error
-        response = json.dumps({'status': 'Error: Failed to connect to database'})
-        return Response(response=response, status=500)
+        return {'status': 'Error: Failed to connect to database'}
     else:
         # DB server couldn't connect to DB
         if isinstance(db_response, dict):
-            return Response(response=db_response, status=500)
-        
+            return db_response
+            
         if not db_response:
             # No such account so not logged in
-            response = json.dumps({'is_logged_in': False})
+            return {'is_logged_in': False}
         else:
             # Account exists: Check if logged in or not
             is_logged_in = True if db_response[0][0] == 'true' else False
-            response = json.dumps({'is_logged_in': is_logged_in})
+            return {'is_logged_in': is_logged_in}
 
-        return Response(response=response, status=200)
 @app.route('/search', methods=['POST'])
 def search():
     global n_ops
@@ -194,6 +213,15 @@ def add_items_to_cart():
     global n_ops
     n_ops += 1
     data = json.loads(request.data)
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(data['username'])
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to add items to your cart.'})
+        return Response(response=response, status=401)
+
     sql = f"SELECT rowid, * FROM products WHERE rowid = {data['item_id']}"
 
     try:
@@ -263,6 +291,14 @@ def make_purchase():
 
     # Check that the items exist/have enough in stock
     data = json.loads(request.data)
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(data['username'])
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to add items to your cart.'})
+        return Response(response=response, status=401)
     
     items_info = []
     for item_id, req_qty in data['items']:
@@ -314,6 +350,15 @@ def make_purchase():
 def get_purchase_history(unm):
     global n_ops
     n_ops += 1
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(unm)
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to view your purchase history.'})
+        return Response(response=response, status=401)
+
     sql = f"SELECT items_purchased FROM buyers WHERE username = '{unm}'"
     try:
         db_response = query_database(sql, 'customer')

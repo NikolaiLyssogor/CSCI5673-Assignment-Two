@@ -10,7 +10,7 @@ pp = pprint.PrettyPrinter()
 
 class SellerClient:
 
-    def __init__(self, server_ip : str = '0.0.0.0:5000', debug: bool = True):
+    def __init__(self, server_ip : str = 'localhost:5000', debug: bool = False):
         self.username = ""
         self.debug = debug
         self.base_url = 'http://' + server_ip
@@ -34,67 +34,60 @@ class SellerClient:
         self.random_password = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
 
     def create_account(self):
-         # User cannot create account if logged in
-        if self.check_if_logged_in():
-            print("\nYou are already logged in. You cannot create an account.\n")
+        if self.debug:
+            # Get user input
+            print("Please provide a username and password.")
+            username = input("\nusername: ")
+            password = input("password: ")
         else:
-            if self.debug:
-                # Get user input
-                print("Please provide a username and password.")
-                username = input("\nusername: ")
-                password = input("password: ")
-            else:
-                username, password = self.username, self.random_password
+            username, password = self.username, self.random_password
 
-            data = json.dumps({
-                'username': username,
-                'password': password
-            })
+        data = json.dumps({
+            'username': username,
+            'password': password
+        })
 
-            start = time.time()
-            url = self.base_url + '/createAccount'
-            response = requests.post(url, headers=self.headers, data=data)
-            end = time.time()
+        start = time.time()
+        url = self.base_url + '/createAccount'
+        response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
 
-            if not self.debug:
-                self.response_times.append(end-start)
+        if not self.debug:
+            self.response_times.append(end-start)
 
-            print('\n', json.loads(response.text)['status'])
+        print('\n', json.loads(response.text)['status'])
 
     def login(self):
         """
         Change the local state to reflect that the user
         is logged in.
         """
-        if self.check_if_logged_in():
-            print("\nYou are already logged in.")
+        if self.debug:
+            # Get the username and password
+            print("\nPlease provide a username and password.")
+            username = input("\nusername: ")
+            password = input("password: ")
         else:
-            if self.debug:
-                # Get the username and password
-                print("\nPlease provide a username and password.")
-                username = input("\nusername: ")
-                password = input("password: ")
-            else:
-                username, password = self.username, self.random_password
+            username, password = self.username, self.random_password
 
-            data = json.dumps({
-                'username': username,
-                'password': password
-            })
+        data = json.dumps({
+            'username': username,
+            'password': password
+        })
 
-            start = time.time()
-            url = self.base_url + '/login'
-            response = requests.post(url, headers=self.headers, data=data)
-            end = time.time()
+        start = time.time()
+        url = self.base_url + '/login'
+        response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
 
-            if not self.debug:
-                self.response_times.append(end-start)
+        if not self.debug:
+            self.response_times.append(end-start)
 
-            response_text = json.loads(response.text)
-            if 'Success' in response_text['status']:
-                self.username = username
-            
-            print('\n', response_text['status'])
+        response_text = json.loads(response.text)
+        if 'Success' in response_text['status']:
+            self.username = username
+        
+        print('\n', response_text['status'])
 
     def logout(self):
         if self.username:
@@ -112,26 +105,22 @@ class SellerClient:
             if 'Success' in response_text['status']:
                 self.username = ""
 
-    def check_if_logged_in(self) -> bool:
-        """
-        Calls the server to check if the user is logged in.
-        """
-        data = json.dumps({'username': self.username})
-        url = self.base_url + '/checkIfLoggedIn'
+    # def check_if_logged_in(self) -> bool:
+    #     """
+    #     Calls the server to check if the user is logged in.
+    #     """
+    #     data = json.dumps({'username': self.username})
+    #     url = self.base_url + '/checkIfLoggedIn'
 
-        start = time.time()
-        response = requests.post(url, headers=self.headers, data=data)
-        end = time.time()
-        self.response_times.append(end-start)
+    #     start = time.time()
+    #     response = requests.post(url, headers=self.headers, data=data)
+    #     end = time.time()
+    #     self.response_times.append(end-start)
 
-        response_text = json.loads(response.text)
-        return response_text['is_logged_in']
+    #     response_text = json.loads(response.text)
+    #     return response_text['is_logged_in']
 
     def get_seller_rating(self):
-        if not self.check_if_logged_in():
-            print("\nYou must be logged in to check your rating")
-            return None
-
         url = self.base_url + f'/getSellerRating/{self.username}'
 
         start = time.time()
@@ -151,126 +140,114 @@ class SellerClient:
         Gather the attributes needed to list an item
         for sale.
         """
-        if not self.check_if_logged_in():
-            print("\nYou must be logged in to sell an item.")
+        if self.debug:
+            name = input("\nItem name: ")
+            category = int(input("Item category: "))
+            keywords = input("Item keywords: ")
+            condition = input("Item condition: ")
+            price = float(input("Item price: "))
+            quantity = int(input("Item quantity: "))
+
+            item = {
+                'name': name,
+                'category': category,
+                'keywords': keywords,
+                'condition': condition,
+                'price': round(price, 2),
+                'quantity': quantity,
+                'seller': self.username,
+                'status': 'For Sale',
+                'buyer': None
+            }
         else:
-            if self.debug:
-                name = input("\nItem name: ")
-                category = int(input("Item category: "))
-                keywords = input("Item keywords: ")
-                condition = input("Item condition: ")
-                price = float(input("Item price: "))
-                quantity = int(input("Item quantity: "))
+            item = {
+                'name': self._get_random_string(6),
+                'category': random.choice(range(10)),
+                'keywords': ','.join([self._get_random_string(3) for _ in range(4)]),
+                'condition': random.choice(['New', 'Used']),
+                'price': round(random.uniform(0, 100), 2),
+                'quantity': random.choice(range(1,6)),
+                'seller': self.username,
+                'status': 'For Sale',
+                'buyer': None
+            }
 
-                item = {
-                    'name': name,
-                    'category': category,
-                    'keywords': keywords,
-                    'condition': condition,
-                    'price': round(price, 2),
-                    'quantity': quantity,
-                    'seller': self.username,
-                    'status': 'For Sale',
-                    'buyer': None
-                }
-            else:
-                item = {
-                    'name': self._get_random_string(6),
-                    'category': random.choice(range(10)),
-                    'keywords': ','.join([self._get_random_string(3) for _ in range(4)]),
-                    'condition': random.choice(['New', 'Used']),
-                    'price': round(random.uniform(0, 100), 2),
-                    'quantity': random.choice(range(1,6)),
-                    'seller': self.username,
-                    'status': 'For Sale',
-                    'buyer': None
-                }
+        data = json.dumps(item)
+        url = self.base_url + '/sellItem'
 
-            data = json.dumps(item)
-            url = self.base_url + '/sellItem'
+        start = time.time()
+        response = requests.post(url, data=data, headers=self.headers)
+        end = time.time()
+        self.response_times.append(end-start)
 
-            start = time.time()
-            response = requests.post(url, data=data, headers=self.headers)
-            end = time.time()
-            self.response_times.append(end-start)
-
-            response_text = json.loads(response.text)
-            print('\n', response_text['status'])
+        response_text = json.loads(response.text)
+        print('\n', response_text['status'])
 
     def list_items(self):
-        if not self.check_if_logged_in():
-            print("\nYou must be logged in to sell an item.")
+        url = self.base_url + f'/listItems/{self.username}'
+
+        start = time.time()
+        response = requests.get(url)
+        end = time.time()
+        self.response_times.append(end-start)
+
+        response_text = json.loads(response.text)
+
+        if 'Error' in response_text['status']:
+            print('\n', response_text['status'])
+        elif not response_text['items']:
+            print("\nYou currently have no items listed for sale")
         else:
-            url = self.base_url + f'/listItems/{self.username}'
-
-            start = time.time()
-            response = requests.get(url)
-            end = time.time()
-            self.response_times.append(end-start)
-
-            response_text = json.loads(response.text)
-
-            if 'Error' in response_text['status']:
-                print(response_text['status'])
-            elif not response_text['items']:
-                print("\nYou currently have no items listed for sale")
-            else:
-                print("\nYou have the following items listed for sale:")
-                for item in response_text['items']:
-                    print("")
-                    pp.pprint(item)
+            print("\nYou have the following items listed for sale:")
+            for item in response_text['items']:
+                print("")
+                pp.pprint(item)
 
     def remove_item(self):
-        if not self.check_if_logged_in():
-            print("\nPlease log in first.")
+        if self.debug:
+            id = int(input("\nEnter the ID of the item you would like to remove: "))
+            quantity = input("How many of this item do you want to remove? ")
         else:
-            if self.debug:
-                id = int(input("\nEnter the ID of the item you would like to remove: "))
-                quantity = input("How many of this item do you want to remove? ")
-            else:
-                id = random.choice(range(1, 1000))
-                quantity = random.choice(range(1, 3))
+            id = random.choice(range(1, 1000))
+            quantity = random.choice(range(1, 3))
 
-            data = json.dumps({
-                'username': self.username,
-                'item_id': id,
-                'quantity': int(quantity)
-            })
-            url = self.base_url + '/deleteItem'
+        data = json.dumps({
+            'username': self.username,
+            'item_id': id,
+            'quantity': int(quantity)
+        })
+        url = self.base_url + '/deleteItem'
 
-            start = time.time()
-            response = requests.put(url, headers=self.headers, data=data)
-            end = time.time()
-            self.response_times.append(end-start)
+        start = time.time()
+        response = requests.put(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
 
-            response_text = json.loads(response.text)
-            print('\n', response_text['status'])
+        response_text = json.loads(response.text)
+        print('\n', response_text['status'])
 
     def change_item_price(self):
-        if not self.check_if_logged_in():
-            print("\nPlease log in first.")
+        if self.debug:
+            id = int(input("\nEnter the ID of the item whose price you wish to change: "))
+            new_price = round(float(input("What shall be the new price? ")), 2)
         else:
-            if self.debug:
-                id = int(input("\nEnter the ID of the item whose price you wish to change: "))
-                new_price = round(float(input("What shall be the new price? ")), 2)
-            else:
-                id = random.choice(range(1, 1000))
-                new_price = round(random.uniform(0, 100), 2)
+            id = random.choice(range(1, 1000))
+            new_price = round(random.uniform(0, 100), 2)
 
-            data = json.dumps({
-                'username': self.username,
-                'item_id': id,
-                'new_price': new_price
-            })
-            url = self.base_url + '/changeItemPrice'
+        data = json.dumps({
+            'username': self.username,
+            'item_id': id,
+            'new_price': new_price
+        })
+        url = self.base_url + '/changeItemPrice'
 
-            start = time.time()
-            response = requests.put(url, headers=self.headers, data=data)
-            end = time.time()
-            self.response_times.append(end-start)
+        start = time.time()
+        response = requests.put(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
 
-            response_text = json.loads(response.text)
-            print('\n', response_text['status'])
+        response_text = json.loads(response.text)
+        print('\n', response_text['status'])
 
     def _get_route(self, route: str):
         return self.routes[route]

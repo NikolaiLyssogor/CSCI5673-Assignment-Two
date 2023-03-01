@@ -10,10 +10,10 @@ from flask import Flask, request, Response
 # Define Flask service
 app = Flask(__name__)
 # Stub for communicating with customer database
-customer_channel = grpc.insecure_channel('35.223.40.99:50051')
+customer_channel = grpc.insecure_channel('localhost:50051')
 customer_stub = database_pb2_grpc.databaseStub(customer_channel)
 # Stub for communicating with product database
-product_channel = grpc.insecure_channel('35.223.9.212:50052')
+product_channel = grpc.insecure_channel('localhost:50052')
 product_stub = database_pb2_grpc.databaseStub(product_channel)
 # Used for tracking throughput
 n_ops = 0
@@ -128,40 +128,70 @@ def logout():
             return Response(response=response, status=200)
 
 
-@app.route('/checkIfLoggedIn', methods=['POST'])
-def check_if_logged_in():
-    global n_ops
-    n_ops += 1
-    data = json.loads(request.data)
-    unm = data['username']
+# @app.route('/checkIfLoggedIn', methods=['POST'])
+# def check_if_logged_in():
+#     global n_ops
+#     n_ops += 1
+#     data = json.loads(request.data)
+#     unm = data['username']
 
+#     try:
+#         # Check the DB if the user is logged in
+#         sql = f"SELECT is_logged_in FROM sellers WHERE username = '{unm}'"
+#         db_response = query_database(sql, 'customer')
+#     except:
+#         # Return database connection error
+#         response = json.dumps({'status': 'Error: Failed to connect to database'})
+#         return Response(response=response, status=500)
+#     else:
+#         # DB server couldn't connect to DB
+#         if isinstance(db_response, dict):
+#             return Response(response=db_response, status=500)
+        
+#         if not db_response:
+#             # No such account so not logged in
+#             response = json.dumps({'is_logged_in': False})
+#         else:
+#             # Account exists: Check if logged in or not
+#             is_logged_in = True if db_response[0][0] == 'true' else False
+#             response = json.dumps({'is_logged_in': is_logged_in})
+        
+#         return Response(response=response, status=200)
+
+def check_if_logged_in(username: str) -> dict:
     try:
         # Check the DB if the user is logged in
-        sql = f"SELECT is_logged_in FROM sellers WHERE username = '{unm}'"
+        sql = f"SELECT is_logged_in FROM sellers WHERE username = '{username}'"
         db_response = query_database(sql, 'customer')
     except:
         # Return database connection error
-        response = json.dumps({'status': 'Error: Failed to connect to database'})
-        return Response(response=response, status=500)
+        return {'status': 'Error: Failed to connect to database'}
     else:
         # DB server couldn't connect to DB
         if isinstance(db_response, dict):
-            return Response(response=db_response, status=500)
-        
+            return db_response
+            
         if not db_response:
             # No such account so not logged in
-            response = json.dumps({'is_logged_in': False})
+            return {'is_logged_in': False}
         else:
             # Account exists: Check if logged in or not
             is_logged_in = True if db_response[0][0] == 'true' else False
-            response = json.dumps({'is_logged_in': is_logged_in})
-        
-        return Response(response=response, status=200)
+            return {'is_logged_in': is_logged_in}
 
 @app.route('/getSellerRating/<string:unm>', methods=['GET'])
 def get_seller_rating(unm):
     global n_ops
     n_ops += 1
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(unm)
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to check your rating.'})
+        return Response(response=response, status=401)
+
     sql = f"""
         SELECT thumbs_up, thumbs_down FROM sellers
         WHERE username = '{unm}'
@@ -189,6 +219,14 @@ def sell_item():
     n_ops += 1
     data = json.loads(request.data)
 
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(data['seller'])
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to sell an item.'})
+        return Response(response=response, status=401)
+
     sql = f"""
         INSERT INTO products
         ('name', 'category', 'keywords', 'condition', 'price', 'quantity', 'seller') VALUES
@@ -213,6 +251,15 @@ def sell_item():
 def list_items(unm):
     global n_ops
     n_ops += 1
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(unm)
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to view your listed items.'})
+        return Response(response=response, status=401)
+
     sql = f"SELECT ROWID, * FROM products WHERE seller = '{unm}'"
 
     try:
@@ -253,6 +300,14 @@ def delete_item():
     global n_ops
     n_ops += 1
     data = json.loads(request.data)
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(data['username'])
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to remove an item.'})
+        return Response(response=response, status=401)
 
     # Do some checks before deleting
     sql = f"""
@@ -303,6 +358,14 @@ def change_item_price():
     global n_ops
     n_ops += 1
     data = json.loads(request.data)
+
+    # Check if logged in before proceeding
+    login_status = check_if_logged_in(data['username'])
+    if 'status' in login_status.keys():
+        return Response(response=login_status, status=500)
+    elif not login_status['is_logged_in']:
+        response = json.dumps({'status': 'Error: You must be logged in to change the price of an item.'})
+        return Response(response=response, status=401)
 
     # Check if this is the user's item before changing the price
     sql = f"""

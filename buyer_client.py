@@ -10,7 +10,7 @@ pp = pprint.PrettyPrinter()
 
 class BuyerClient:
 
-    def __init__(self, server_ip : str = '0.0.0.0:5001', debug : bool = True):
+    def __init__(self, server_ip : str = 'localhost:5001', debug : bool = False):
         self.username = ""
         self.cart = []
         self.debug = debug
@@ -38,63 +38,56 @@ class BuyerClient:
         self.random_password = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
 
     def create_account(self):
-         # User cannot create account if logged in
-        if self.check_if_logged_in():
-            print("\nYou are already logged in. You cannot create an account.\n")
+        if self.debug:
+            # Get user input
+            print("Please provide a username and password.")
+            username = input("\nusername: ")
+            password = input("password: ")
         else:
-            if self.debug:
-                # Get user input
-                print("Please provide a username and password.")
-                username = input("\nusername: ")
-                password = input("password: ")
-            else:
-                username, password = self.username, self.random_password
+            username, password = self.username, self.random_password
 
-            data = json.dumps({
-                'username': username,
-                'password': password
-            })
+        data = json.dumps({
+            'username': username,
+            'password': password
+        })
 
-            start = time.time()
-            url = self.base_url + '/createAccount'
-            response = requests.post(url, headers=self.headers, data=data)
-            end = time.time()
-            self.response_times.append(end-start)
+        start = time.time()
+        url = self.base_url + '/createAccount'
+        response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
 
-            print('\n', json.loads(response.text)['status'])
+        print('\n', json.loads(response.text)['status'])
 
     def login(self):
         """
         Change the local state to reflect that the user
         is logged in.
         """
-        if self.check_if_logged_in():
-            print("\nYou are already logged in.")
+        if self.debug:
+            # Get the username and password
+            print("\nPlease provide a username and password.")
+            username = input("\nusername: ")
+            password = input("password: ")
         else:
-            if self.debug:
-                # Get the username and password
-                print("\nPlease provide a username and password.")
-                username = input("\nusername: ")
-                password = input("password: ")
-            else:
-                username, password = self.username, self.random_password
+            username, password = self.username, self.random_password
 
-            data = json.dumps({
-                'username': username,
-                'password': password
-            })
+        data = json.dumps({
+            'username': username,
+            'password': password
+        })
 
-            start = time.time()
-            url = self.base_url + '/login'
-            response = requests.post(url, headers=self.headers, data=data)
-            end = time.time()
-            self.response_times.append(end-start)
+        start = time.time()
+        url = self.base_url + '/login'
+        response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
 
-            response_text = json.loads(response.text)
-            if 'Success' in response_text['status']:
-                self.username = username
-            
-            print('\n', response_text['status'])
+        response_text = json.loads(response.text)
+        if 'Success' in response_text['status']:
+            self.username = username
+        
+        print('\n', response_text['status'])
 
     def logout(self):
         if self.username:
@@ -112,30 +105,26 @@ class BuyerClient:
             if 'Success' in response_text['status']:
                 self.username = ""
 
-    def check_if_logged_in(self) -> bool:
-        """
-        Calls the server to check if the user is logged in.
-        """
-        data = json.dumps({'username': self.username})
-        url = self.base_url + '/checkIfLoggedIn'
+    # def check_if_logged_in(self) -> bool:
+    #     """
+    #     Calls the server to check if the user is logged in.
+    #     """
+    #     data = json.dumps({'username': self.username})
+    #     url = self.base_url + '/checkIfLoggedIn'
 
-        start = time.time()
-        response = requests.post(url, headers=self.headers, data=data)
-        end = time.time()
-        self.response_times.append(end-start)
+    #     start = time.time()
+    #     response = requests.post(url, headers=self.headers, data=data)
+    #     end = time.time()
+    #     self.response_times.append(end-start)
 
-        response_text = json.loads(response.text)
-        return response_text['is_logged_in']
+    #     response_text = json.loads(response.text)
+    #     return response_text['is_logged_in']
 
     def search(self):
         """
         Results in the specified category or matching
         any of the keywords get returned.
         """
-        if not self.check_if_logged_in():
-            print("\nYou must be logged in to perform this action.")
-            return None
-
         if self.debug:
             print("Please provide the following information.")
             category = int(input("\nCategory (0-9): "))
@@ -167,36 +156,34 @@ class BuyerClient:
                 pp.pprint(item)
 
     def add_items_to_cart(self):
-        if not self.check_if_logged_in():
-            print("\nYou must log in before adding items to your cart.")
+        if self.debug:
+            item_id = int(input("\nID for the item you wish to add to your cart: "))
+            quantity = int(input("Number of this item you wish to add to your cart: "))
+            
         else:
-            if self.debug:
-                item_id = int(input("\nID for the item you wish to add to your cart: "))
-                quantity = int(input("Number of this item you wish to add to your cart: "))
-                
-            else:
-                item_id = random.choice(range(100))
-                quantity = random.choice(range(5))
+            item_id = random.choice(range(100))
+            quantity = random.choice(range(5))
 
-            data = json.dumps({
-                    'item_id': item_id,
-                    'quantity': quantity
-                })
-            url = self.base_url + '/addItemsToCart'
+        data = json.dumps({
+                'username': self.username,
+                'item_id': item_id,
+                'quantity': quantity
+            })
+        url = self.base_url + '/addItemsToCart'
 
-            start = time.time()
-            response = requests.post(url, headers=self.headers, data=data)
-            end = time.time()
-            self.response_times.append(end-start)
+        start = time.time()
+        response = requests.post(url, headers=self.headers, data=data)
+        end = time.time()
+        self.response_times.append(end-start)
 
-            response_text = json.loads(response.text)
+        response_text = json.loads(response.text)
 
-            if 'Error' in response_text['status']:
-                # No such item, not enough, etc.
-                print('\n', response_text['status'])
-            else:
-                self.cart.append(response_text['items'])
-                print("\nThe items have been added to your cart")
+        if 'Error' in response_text['status']:
+            # No such item, not enough, etc.
+            print('\n', response_text['status'])
+        else:
+            self.cart.append(response_text['items'])
+            print("\nThe items have been added to your cart")
 
     def remove_item_from_cart(self):
         item_id = int(input("\nID for the item you wish to remove from your cart: "))
@@ -233,10 +220,6 @@ class BuyerClient:
                 pp.pprint(item)
 
     def get_seller_rating_by_id(self):
-        if not self.check_if_logged_in():
-            print("\nYou must be logged in to perform this action.")
-            return None
-
         if self.debug:
             seller_id = input("\nPlease provide the ID for the seller whose rating you wish to view.\n")
         else:
@@ -258,10 +241,6 @@ class BuyerClient:
             print(f"\nSeller with ID {seller_id} has {tu} thumbs up and {td} thumbs down")
 
     def make_purchase(self):
-        if not self.check_if_logged_in():
-            print("\nYou must log in to make a purchase.")
-            return None
-
         if not self.cart:
             print("\nPlease add items to your cart before attempting to make a purchase.")
             return None
@@ -298,10 +277,6 @@ class BuyerClient:
             self.clear_cart()
 
     def get_purchase_history(self):
-        if not self.check_if_logged_in():
-            print("\nYou must log in to view your purchase history.")
-            return None
-
         url = self.base_url + '/getPurchaseHistory/' + self.username
 
         start = time.time()
